@@ -133,3 +133,4 @@ dmypy.json
 
 # Custom
 /data
+/optimizr/run.py

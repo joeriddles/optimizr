@@ -1,7 +1,5 @@
 from __future__ import annotations
-import itertools
-import json
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import numpy as np
 from operator import itemgetter
@@ -12,7 +10,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from .groups import Group
 
 
-def binarize_groups(groups: list[Group], target_group: Group):
+def binarize_groups(groups: list[Group], target_group: Group) -> Tuple[csr_matrix, csr_matrix, np.ndarray]:
     group_members = [
         group.members
         for group
@@ -31,8 +29,8 @@ def binarize_groups(groups: list[Group], target_group: Group):
 
 # eventually adding user_importances here - CG
 def get_scaled_utility_vector(
-    binarized_target_group,
-    extraneous_penalty,
+    binarized_target_group: csr_matrix,
+    extraneous_penalty: float,
     user_access_counts: Optional[Any]=None,
 ):
     """
@@ -54,11 +52,11 @@ def get_scaled_utility_vector(
 
 
 def scale_and_score_matrix(
-    binarized_groups,
-    binarized_target_group,
-    scaled_utility_vector, 
+    binarized_groups: csr_matrix,
+    binarized_target_group: csr_matrix,
+    scaled_utility_vector: np.ndarray, 
     group_weights: Optional[Any]=None,
-):
+) -> np.ndarray:
     """
     1. Scales the target group and binary groups
     2. Calculates the __weighted__ distances between target group and every other group
@@ -66,7 +64,7 @@ def scale_and_score_matrix(
 
     scaled_target_group = binarized_target_group.multiply(scaled_utility_vector)
     scaled_binarized_groups = binarized_groups.multiply(scaled_utility_vector)
-    group_distances = pairwise_distances(scaled_target_group, scaled_binarized_groups)  # type: ignore
+    group_distances: np.ndarray = pairwise_distances(scaled_target_group, scaled_binarized_groups)  # type: ignore
     
     if group_weights is not None:
         # may have to transpose group_weights... - JR
@@ -76,7 +74,11 @@ def scale_and_score_matrix(
     return group_distances
 
 
-def apply_group_from_index(binarized_groups, binarized_target_group, index):
+def apply_group_from_index(
+    binarized_groups: csr_matrix,
+    binarized_target_group: csr_matrix,
+    index: int
+):
     """
     "I picked this group as one of my matches, remove its users from the group I'm search for" - Clayton
     """
@@ -86,7 +88,7 @@ def apply_group_from_index(binarized_groups, binarized_target_group, index):
     return current_group, matches
 
 
-def find_best_n_groups(group_distances, n):
+def find_best_n_groups(group_distances: np.ndarray, n: int):
     """
     Finds beginning candidates ("Entry-points / first-steps of paths for greedy")
     """
@@ -96,7 +98,12 @@ def find_best_n_groups(group_distances, n):
     return n_groups
 
 
-def find_groups_from_starting_group(start_index, binarized_groups, binarized_target_group, extraneous_penalty):
+def find_groups_from_starting_group(
+    start_index: int,
+    binarized_groups: csr_matrix,
+    binarized_target_group: csr_matrix,
+    extraneous_penalty: float,
+):
     """
     Get a path of groups with a starting-point point of `start_index`
 
@@ -130,7 +137,6 @@ def score_full_path(
     binarized_target_group: csr_matrix,
     scaled_utility_vector: np.ndarray,
     extraneous_penalty: float,
-    unmatched_penalty: float,
 ):
     """
     Calculate final score and other statistics for a path.
@@ -173,36 +179,48 @@ def score_full_path(
 
 
 def find_optimal_groups(
-    binarized_target_group,
-    binarized_groups,
-    extraneous_penalty,
-    n_groups,
-    unmatched_penalty,
+    binarized_target_group: csr_matrix,
+    binarized_groups: csr_matrix,
+    extraneous_penalty: float,
+    n_groups: int,
+    user_access_counts: Optional[Any]=None,
+    group_weights: Optional[Any]=None,
 ):
     scaled_utility_vector = get_scaled_utility_vector(
         binarized_target_group,
-        extraneous_penalty
+        extraneous_penalty,
+        user_access_counts=user_access_counts
     )
 
     group_distances = scale_and_score_matrix(
         binarized_groups,
         binarized_target_group,
-        scaled_utility_vector
+        scaled_utility_vector,
+        group_weights=group_weights,
     )
 
     # AKA: best n starting-points
     best_n_groups = find_best_n_groups(group_distances, n_groups)
 
-    paths = []
+    paths: list = []
     for group_index in best_n_groups:
         path = find_groups_from_starting_group(
-            group_index, binarized_groups, binarized_target_group, extraneous_penalty)
+            group_index,
+            binarized_groups,
+            binarized_target_group,
+            extraneous_penalty
+        )
         paths.append(path)
 
     scores = []
     for path in paths:
-        score = score_full_path(path, binarized_groups, binarized_target_group,
-                                scaled_utility_vector, extraneous_penalty, unmatched_penalty)
+        score = score_full_path(
+            path,
+            binarized_groups,
+            binarized_target_group,
+            scaled_utility_vector,
+            extraneous_penalty,
+        )
         scores.append(score)
 
     sorted_scores = sorted(scores, key=itemgetter('Score'), reverse=True)
@@ -212,62 +230,7 @@ def find_optimal_groups(
     return best_choice, sorted_scores
 
 
-def calculate_exraneous_penalty(target_group_size):
+def calculate_exraneous_penalty(target_group_size) -> float:
     """Scales amount of extra users allowed using a function of target_group_size"""
     extraneous_penalty = -0.0242654 * (target_group_size ** 0.3389719)
     return extraneous_penalty
-
-
-def run():
-    # lower values mean more matches but more extraneous. Very sensitive to changes, suggested range (-.04 : -.15 )
-    #extraneous_penalty = -.12
-    unmatched_penalty = -1
-
-    # pulling in groups from given files; this will be different for you. You'll also probably only pass in one target group
-    binarized_groups, binarized_target_groups, groups_names, users = binarize_groups()
-
-    # you'll need to provide your target group and all groups
-    binarized_target_group = binarized_target_groups[3]
-    target_group_size = binarized_target_group.sum()
-
-    extraneous_penalty = calculate_exraneous_penalty(target_group_size)
-
-    n_groups = 10
-    best_result, best_n_results = find_optimal_groups(
-        binarized_target_group, binarized_groups, extraneous_penalty, n_groups)
-
-    # this stuff was just for generating data for comparisons
-    '''
-    matching_percents = []
-    extraneous_percents = []
-
-    for binarized_target_group in binarized_target_groups:
-        target_group_size = binarized_target_group.sum()
-        extraneous_penalty = -0.0242654*target_group_size**0.3389719
-        n_groups = 10
-        best_result, best_n_results = do_everything(binarized_target_group, binarized_groups, extraneous_penalty, n_groups)
-        matching_percents.append(best_result['Matching Percent'])
-        extraneous_percents.append(best_result['Extraneous Percent'])
-        print('did one')
-
-    with open('hashed_generated_results.json') as groups_result_json:
-        result_data = json.load(groups_result_json)
-        
-    joe_matching_percent = [result_data[group]['matching_percentage'] for group in result_data]
-    joe_extra_percent = [result_data[group]['extra_percentage'] for group in result_data]
-    df = pd.DataFrame()
-    df['Original Matching Percentage'] = joe_matching_percent
-    df['Original Extra Percentage'] = joe_extra_percent
-    df['New Matching Percentage'] = matching_percents
-    df['New Extra Percentage'] = extraneous_percents
-
-    df.to_csv('results.csv')
-    '''
-
-    '''
-    matching_percentages = [result_data[x]['matching_percentage'] for x in result_data]
-    df = pd.DataFrame(matching_percentages, columns = ['Matching Percent'])
-    df.plot.hist(bins=50)
-    plt.xlabel('Matching Percent')
-
-    '''

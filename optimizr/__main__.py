@@ -14,7 +14,6 @@ path = Path(__file__).parent.parent
 
 
 NUM_SEEDS = 10
-UNMATCHED_PENALTY = -1
 
 
 def main():
@@ -25,13 +24,12 @@ def main():
         binarized_groups, binarized_target_group, all_members = binarize_groups(groups, target_group)
         target_group_size = binarized_target_group.sum()
 
-        extraneous_penalty = calculate_exraneous_penalty(target_group_size)
+        extraneous_penalty: float = calculate_exraneous_penalty(target_group_size)
         best_choice, sorted_scores = find_optimal_groups(
             binarized_target_group,
             binarized_groups,
             extraneous_penalty,
             NUM_SEEDS,
-            UNMATCHED_PENALTY,
         )
 
         breakpoint()
