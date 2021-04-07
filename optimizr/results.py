@@ -1,6 +1,7 @@
 
 class Result:
     score: float
+    selected_groups: list[str]
     matching_percent: float
     matching_users: list[str]
     matching_users_count: int
@@ -9,10 +10,10 @@ class Result:
     extraneous_users_count: int
     unmatched_users: list[str]
     unmatched_users_count: int
-    selected_groups: list[str]
 
     def __init__(self,
         score: float,
+        selected_groups: list[str],
         matching_percent: float,
         matching_users: list[str],
         matching_users_count: int,
@@ -21,9 +22,9 @@ class Result:
         extraneous_users_count: int,
         unmatched_users: list[str],
         unmatched_users_count: int,
-        selected_groups: list[str],
     ):
         self.score = score
+        self.selected_groups = selected_groups
         self.matching_percent = matching_percent
         self.matching_users = matching_users
         self.matching_users_count = matching_users_count
@@ -32,7 +33,6 @@ class Result:
         self.extraneous_users_count = extraneous_users_count
         self.unmatched_users = unmatched_users
         self.unmatched_users_count = unmatched_users_count
-        self.selected_groups = selected_groups
 
     def __str__(self) -> str:
         return f"""Score: {self.score}
