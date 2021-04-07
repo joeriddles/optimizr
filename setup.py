@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="optimizr",
-    version="1.0.4",
+    version="1.0.5",
     author="Joseph Riddle, Clayton Gravatt",
     author_email="joeriddles10@gmail.com",
     description="A small package to find similar collections.",

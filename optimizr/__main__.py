@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from . import files
-from .GroupOptimizations3 import (
+from .optimizr import (
     binarize_groups,
     binarize_target_group,
     find_optimal_groups
@@ -23,6 +23,7 @@ def main():
             binarized_target_group,
             binarized_groups,
         )
+        print(best_choice)
 
 
 if __name__ == '__main__':
