@@ -10,24 +10,28 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from .groups import Group
 
 
-def binarize_groups(groups: list[Group], target_group: Group) -> Tuple[csr_matrix, csr_matrix, np.ndarray]:
+def binarize_groups(groups: list[Group]) -> Tuple[MultiLabelBinarizer, csr_matrix, np.ndarray]:
     group_members = [
         group.members
         for group
         in groups
     ]
-    target_members = target_group.members
 
     mlb = MultiLabelBinarizer(sparse_output=True) # type: ignore
     binarized_groups: csr_matrix = mlb.fit_transform(group_members) # type: ignore
-    binarized_target_groups: csr_matrix = mlb.transform([target_members]) # type: ignore
 
     # get all unique members from the transformer
     all_members = mlb.classes_
-    return binarized_groups, binarized_target_groups, all_members
+    return mlb, binarized_groups, all_members
 
 
-# eventually adding user_importances here - CG
+def binarize_target_group(mlb: MultiLabelBinarizer, target_group: Group) -> csr_matrix:
+    target_group_members = target_group.members
+    y = [target_group_members]
+    binarized_target_group: csr_matrix = mlb.transform(y) # type: ignore
+    return binarized_target_group
+
+
 def get_scaled_utility_vector(
     binarized_target_group: csr_matrix,
     extraneous_penalty: float,
@@ -181,11 +185,16 @@ def score_full_path(
 def find_optimal_groups(
     binarized_target_group: csr_matrix,
     binarized_groups: csr_matrix,
-    extraneous_penalty: float,
-    n_groups: int,
+    n_groups: Optional[int]=None,
     user_access_counts: Optional[Any]=None,
     group_weights: Optional[Any]=None,
 ):
+    if n_groups is None:
+        n_groups = 10
+
+    target_group_size = binarized_target_group.sum()
+    extraneous_penalty: float = calculate_exraneous_penalty(target_group_size)
+
     scaled_utility_vector = get_scaled_utility_vector(
         binarized_target_group,
         extraneous_penalty,
