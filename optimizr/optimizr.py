@@ -203,14 +203,16 @@ def find_optimal_groups(
     binarized_target_group: csr_matrix,
     binarized_groups: csr_matrix,
     n_groups: Optional[int]=None,
+    extraneous_penalty: Optional[float]=None,
     user_access_counts: Optional[Any]=None,
     group_weights: Optional[Any]=None,
 ) -> Tuple[Result, list[Result]]:
     if n_groups is None:
         n_groups = 10
 
-    target_group_size = binarized_target_group.sum()
-    extraneous_penalty: float = calculate_exraneous_penalty(target_group_size)
+    if extraneous_penalty is None:
+        target_group_size = binarized_target_group.sum()
+        extraneous_penalty = calculate_exraneous_penalty(target_group_size)
 
     scaled_utility_vector = get_scaled_utility_vector(
         binarized_target_group,
