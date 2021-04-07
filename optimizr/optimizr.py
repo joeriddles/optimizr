@@ -137,7 +137,7 @@ def find_groups_from_starting_group(
 
 
 def score_full_path(
-    path: list,
+    path: np.ndarray,
     binarized_groups: csr_matrix,
     binarized_target_group: csr_matrix,
     scaled_utility_vector: np.ndarray,
@@ -168,6 +168,7 @@ def score_full_path(
     score = scaled_matching_users + extraneous_users_count*extraneous_penalty + scaled_unmatched_users
 
     score = float(score)
+    suggested_groups = path.tolist()
     matching_users = matching_users.nonzero()[1].tolist()
     extraneous_users = extraneous_users.nonzero()[1].tolist()
     unmatched_users = unmatched_users.nonzero()[1].tolist()
@@ -179,6 +180,7 @@ def score_full_path(
     
     result = Result(
         score,
+        suggested_groups,
         matching_percent,
         matching_users,
         matching_users_count,
@@ -187,7 +189,6 @@ def score_full_path(
         extraneous_users_count,
         unmatched_users,
         unmatched_users_count,
-        path
     )
 
     return result
