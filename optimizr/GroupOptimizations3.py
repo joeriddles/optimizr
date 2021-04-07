@@ -8,6 +8,7 @@ from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import MultiLabelBinarizer
 
 from .groups import Group
+from .results import Result
 
 
 def binarize_groups(groups: list[Group]) -> Tuple[MultiLabelBinarizer, csr_matrix, np.ndarray]:
@@ -141,7 +142,7 @@ def score_full_path(
     binarized_target_group: csr_matrix,
     scaled_utility_vector: np.ndarray,
     extraneous_penalty: float,
-):
+) -> Result:
     """
     Calculate final score and other statistics for a path.
     """
@@ -166,20 +167,30 @@ def score_full_path(
     scaled_unmatched_users = unmatched_users.multiply(scaled_utility_vector).sum() * -1
     score = scaled_matching_users + extraneous_users_count*extraneous_penalty + scaled_unmatched_users
 
-    evaluation_dict = {
-        'Score': score,
-        'Matching Percent': matching_percent,
-        'Matching Users': matching_users.nonzero()[1],
-        'Matching Users Count': matching_users_count,
-        'Extraneous Users': extraneous_users.nonzero()[1],
-        'Extraneous Users Count': extraneous_users_count,
-        'Extraneous Percent': extraneous_percent,
-        'Unmatched Users': unmatched_users.nonzero()[1],
-        'Unmatched Users Count': unmatched_users_count,
-        'Selected Groups': path
-    }
+    score = float(score)
+    matching_users = matching_users.nonzero()[1].tolist()
+    extraneous_users = extraneous_users.nonzero()[1].tolist()
+    unmatched_users = unmatched_users.nonzero()[1].tolist()
+    matching_users_count = int(matching_users_count)
+    extraneous_users_count = int(extraneous_users_count)
+    unmatched_users_count = int(unmatched_users_count)
+    matching_percent = float(matching_percent)
+    extraneous_percent = float(extraneous_percent)
+    
+    result = Result(
+        score,
+        matching_percent,
+        matching_users,
+        matching_users_count,
+        extraneous_percent,
+        extraneous_users,
+        extraneous_users_count,
+        unmatched_users,
+        unmatched_users_count,
+        path
+    )
 
-    return evaluation_dict
+    return result
 
 
 def find_optimal_groups(
@@ -188,7 +199,7 @@ def find_optimal_groups(
     n_groups: Optional[int]=None,
     user_access_counts: Optional[Any]=None,
     group_weights: Optional[Any]=None,
-):
+) -> Tuple[Result, list[Result]]:
     if n_groups is None:
         n_groups = 10
 
@@ -221,7 +232,7 @@ def find_optimal_groups(
         )
         paths.append(path)
 
-    scores = []
+    scores: list[Result] = []
     for path in paths:
         score = score_full_path(
             path,
@@ -232,8 +243,7 @@ def find_optimal_groups(
         )
         scores.append(score)
 
-    sorted_scores = sorted(scores, key=itemgetter('Score'), reverse=True)
-
+    sorted_scores = sorted(scores, key=lambda r: r.score, reverse=True)
     best_choice = sorted_scores[0]
 
     return best_choice, sorted_scores

@@ -23,6 +23,7 @@ def main():
             binarized_target_group,
             binarized_groups,
         )
+        print(best_choice)
 
 
 if __name__ == '__main__':
