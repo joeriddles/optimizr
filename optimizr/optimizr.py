@@ -82,7 +82,7 @@ def scale_and_score_matrix(
 def apply_group_from_index(
     binarized_groups: csr_matrix,
     binarized_target_group: csr_matrix,
-    index: int
+    index: np.number,
 ):
     """
     "I picked this group as one of my matches, remove its users from the group I'm search for" - Clayton
@@ -93,29 +93,29 @@ def apply_group_from_index(
     return current_group, matches
 
 
-def find_best_n_groups(group_distances: np.ndarray, n: int):
+def find_best_n_groups(group_distances: np.ndarray, n: int) -> np.ndarray:
     """
     Finds beginning candidates ("Entry-points / first-steps of paths for greedy")
     """
     group_distances = group_distances[0]
-    n_groups = np.argpartition(group_distances, n)
+    n_groups: np.ndarray = np.argpartition(group_distances, n)
     n_groups = n_groups[:n]
     return n_groups
 
 
 def find_groups_from_starting_group(
-    start_index: int,
+    start_index: np.number,
     binarized_groups: csr_matrix,
     binarized_target_group: csr_matrix,
     extraneous_penalty: float,
-):
+) -> list[np.number]:
     """
     Get a path of groups with a starting-point point of `start_index`
 
     param: start_index: int - index for starting group
     returns: a list representing a "path" of groups
     """
-    selected_group_indices = [start_index]
+    selected_group_indices: list[np.number] = [start_index]
     x = 1  # maximum number of groups in a result
     current_group, matches = apply_group_from_index(
         binarized_groups, binarized_target_group, start_index)
@@ -126,7 +126,7 @@ def find_groups_from_starting_group(
             current_group,
             scaled_utility_vector
         )
-        best_group = find_best_n_groups(group_distances, 1)[0]
+        best_group: np.number = find_best_n_groups(group_distances, 1)[0]
         current_group, matches = apply_group_from_index(binarized_groups, current_group, best_group)
         if matches >= 2:  # if current_group adds at least 2 new matching users
             selected_group_indices.append(best_group)
@@ -137,7 +137,7 @@ def find_groups_from_starting_group(
 
 
 def score_full_path(
-    path: list[str],
+    path: list[np.number],
     binarized_groups: csr_matrix,
     binarized_target_group: csr_matrix,
     scaled_utility_vector: np.ndarray,
@@ -167,6 +167,12 @@ def score_full_path(
     scaled_unmatched_users = unmatched_users.multiply(scaled_utility_vector).sum() * -1
     score = scaled_matching_users + extraneous_users_count*extraneous_penalty + scaled_unmatched_users
 
+    suggested_groups = [
+        str(index)
+        for index
+        in path
+    ]
+
     score = float(score)
     matching_users = matching_users.nonzero()[1].tolist()
     extraneous_users = extraneous_users.nonzero()[1].tolist()
@@ -179,7 +185,7 @@ def score_full_path(
     
     result = Result(
         score,
-        path,
+        suggested_groups,
         matching_percent,
         matching_users,
         matching_users_count,
@@ -224,7 +230,7 @@ def find_optimal_groups(
 
     paths: list = []
     for group_index in best_n_groups:
-        path = find_groups_from_starting_group(
+        path: list[np.number] = find_groups_from_starting_group(
             group_index,
             binarized_groups,
             binarized_target_group,
@@ -232,21 +238,21 @@ def find_optimal_groups(
         )
         paths.append(path)
 
-    scores: list[Result] = []
+    results: list[Result] = []
     for path in paths:
-        score = score_full_path(
+        result = score_full_path(
             path,
             binarized_groups,
             binarized_target_group,
             scaled_utility_vector,
             extraneous_penalty,
         )
-        scores.append(score)
+        results.append(result)
 
-    sorted_scores = sorted(scores, key=lambda r: r.score, reverse=True)
-    best_choice = sorted_scores[0]
+    sorted_results = sorted(results, key=lambda r: r.score, reverse=True)
+    best_result = sorted_results[0]
 
-    return best_choice, sorted_scores
+    return best_result, sorted_results
 
 
 def calculate_exraneous_penalty(target_group_size) -> float:
