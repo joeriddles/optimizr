@@ -1,11 +1,14 @@
 import setuptools
+import versioneer
+
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="optimizr",
-    version="1.0.7",
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     author="Joseph Riddle, Clayton Gravatt",
     author_email="joeriddles10@gmail.com",
     description="A small package to find similar collections.",
