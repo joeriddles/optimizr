@@ -8,5 +8,5 @@ build-backend = "setuptools.build_meta"
 [tool.semantic_release]
 branch = "main"
 version_variable = [
-    'optimizr/__version__.py:__version__',
+    '__version__.py:__version__',
 ]
