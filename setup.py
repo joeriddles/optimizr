@@ -1,13 +1,13 @@
 import setuptools
 
-import optimizr
+from optimizr.__version__ import __version__
 
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 
-version = optimizr.__version__
+version = __version__
 
 
 setuptools.setup(
