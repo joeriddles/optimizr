@@ -4,6 +4,11 @@
 
 ## v1.4.3 (2021-04-08)
 ### Fix
+* **optimizr:** Move __version__ ([`0683762`](https://github.com/joeriddles/optimizr/commit/06837625c11fd463fc1f7772c86e4954dfff4384))
+* **optimizr:** Move __version__ ([`c7dcfed`](https://github.com/joeriddles/optimizr/commit/c7dcfedecb1125b1b6405f5907c43f388b9264f2))
+
+## v1.4.3 (2021-04-08)
+### Fix
 * **optimizr:** Move __version__ ([`c7dcfed`](https://github.com/joeriddles/optimizr/commit/c7dcfedecb1125b1b6405f5907c43f388b9264f2))
 
 ## v1.4.2 (2021-04-08)
