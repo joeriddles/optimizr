@@ -1,6 +1,6 @@
 import setuptools
 
-from optimizr.__version__ import __version__
+from __version__ import __version__
 
 
 with open("README.md", "r", encoding="utf-8") as fh:
