@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.2 (2021-04-08)
+### Fix
+* **optimizr:** Bump semver ([`6b23888`](https://github.com/joeriddles/optimizr/commit/6b23888ed280ecc66ccc3610f3f6858d6539bf36))
+
 ## v0.1.1 (2021-04-08)
 ### Fix
 * **optimizr:** Fix setup.cfg ([`bc08d49`](https://github.com/joeriddles/optimizr/commit/bc08d49b5572edb75b1f4a1b4447655246c52942))
