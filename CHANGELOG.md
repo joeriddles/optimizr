@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v1.4.0 (2021-04-08)
+
+
 ## v1.3.0 (2021-04-08)
 ### Feature
 * **optimizr:** Bump semver ([`6b87acd`](https://github.com/joeriddles/optimizr/commit/6b87acd25ceef559748d1e29926a490487b903ad))
