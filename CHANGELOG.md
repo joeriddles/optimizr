@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.4.2 (2021-04-08)
+### Fix
+* **optimizr:** Fix setup ([`753f65e`](https://github.com/joeriddles/optimizr/commit/753f65e4218a5848a0496525f72c7ceeddcfe389))
+
 ## v1.4.1 (2021-04-08)
 ### Fix
 * **optimizr:** Remove version from setup.cfg ([`f63b13b`](https://github.com/joeriddles/optimizr/commit/f63b13bac2739f23e4f57306fc032586f822c60f))
