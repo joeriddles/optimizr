@@ -4,4 +4,4 @@ from .optimizr import (
     find_optimal_groups
 )
 
-__version__ = "1.0.11"
+__version__ = "0.0.0"
