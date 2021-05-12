@@ -1,7 +1,7 @@
 
 class Result:
     score: float
-    selected_groups: list[str]
+    selected_groups: list[int]
     matching_percent: float
     matching_users: list[str]
     matching_users_count: int
@@ -13,7 +13,7 @@ class Result:
 
     def __init__(self,
         score: float,
-        selected_groups: list[str],
+        selected_groups: list[int],
         matching_percent: float,
         matching_users: list[str],
         matching_users_count: int,
@@ -46,7 +46,8 @@ Extraneous Percent: {self.extraneous_percent}
 
     def full_str(self):
         string = str(self)
-        string = string + """Matching Users: {self.matching_users}
+        string = string + f"""Matching Users: {self.matching_users}
 Unmatched Users: {self.unmatched_users}
 Extraneous Users: {self.extraneous_users}
 """
+        return string

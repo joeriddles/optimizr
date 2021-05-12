@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing import Any, Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import numpy as np
-from operator import itemgetter
 from scipy.sparse import csr_matrix
 from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -33,49 +32,21 @@ def binarize_target_group(mlb: MultiLabelBinarizer, target_group: Group) -> csr_
     return binarized_target_group
 
 
-def get_scaled_utility_vector(
+def get_scaled_target_group(
     binarized_target_group: csr_matrix,
-    extraneous_penalty: float,
-    user_access_counts: Optional[Any]=None,
-):
-    """
-    Weights users based on importance (extraneous, matching...)
-
-    param: user_access_counts: ndarray - dense, in same order as user IDs so they line up with binarized version.
-    """
-    if user_access_counts is None:
-        scaled_utility_vector = binarized_target_group.todense().astype('float32')
-        scaled_utility_vector[scaled_utility_vector <= 0] =  extraneous_penalty
-    else:
-        scaled_utility_vector = user_access_counts.astype('float32')
-        max_user_access_count = np.max(scaled_utility_vector)
-        user_access_counts = user_access_counts / max_user_access_count + 1
-        # [... == 1] because we've added 1 to each entry - JR
-        scaled_utility_vector[scaled_utility_vector == 1] = extraneous_penalty
-
-    return scaled_utility_vector
+) -> np.ndarray:
+    scaled_target_group = np.array(binarized_target_group.todense().astype('float32'))
+    return scaled_target_group
 
 
 def scale_and_score_matrix(
     binarized_groups: csr_matrix,
     binarized_target_group: csr_matrix,
-    scaled_utility_vector: np.ndarray, 
-    group_weights: Optional[Any]=None,
+    scaled_target_group: np.ndarray, 
 ) -> np.ndarray:
-    """
-    1. Scales the target group and binary groups
-    2. Calculates the __weighted__ distances between target group and every other group
-    """
-
-    scaled_target_group = binarized_target_group.multiply(scaled_utility_vector)
-    scaled_binarized_groups = binarized_groups.multiply(scaled_utility_vector)
+    scaled_target_group = binarized_target_group.multiply(scaled_target_group) # type: ignore
+    scaled_binarized_groups = binarized_groups.multiply(scaled_target_group)
     group_distances: np.ndarray = pairwise_distances(scaled_target_group, scaled_binarized_groups)  # type: ignore
-    
-    if group_weights is not None:
-        # may have to transpose group_weights... - JR
-        group_weights = 1 / group_weights
-        group_distances = np.multiply(group_distances, group_weights) # type: ignore
-
     return group_distances
 
 
@@ -89,11 +60,11 @@ def apply_group_from_index(
     """
     current_group = binarized_target_group - binarized_groups[index]
     current_group[current_group < 0] = 0
-    matches = binarized_target_group.sum() - current_group.sum()
+    matches = len(binarized_target_group.nonzero()[0]) - len(current_group.nonzero()[0])
     return current_group, matches
 
 
-def find_best_n_groups(group_distances: np.ndarray, n: int) -> np.ndarray:
+def find_best_starting_groups(group_distances: np.ndarray, n: int) -> np.ndarray:
     """
     Finds beginning candidates ("Entry-points / first-steps of paths for greedy")
     """
@@ -107,7 +78,6 @@ def find_groups_from_starting_group(
     start_index: np.number,
     binarized_groups: csr_matrix,
     binarized_target_group: csr_matrix,
-    extraneous_penalty: float,
 ) -> list[np.number]:
     """
     Get a path of groups with a starting-point point of `start_index`
@@ -117,22 +87,27 @@ def find_groups_from_starting_group(
     """
     selected_group_indices: list[np.number] = [start_index]
     x = 1  # maximum number of groups in a result
-    current_group, matches = apply_group_from_index(
-        binarized_groups, binarized_target_group, start_index)
-    while x < 4:
-        scaled_utility_vector = get_scaled_utility_vector(current_group, extraneous_penalty)
+    current_group, matches = apply_group_from_index(binarized_groups, binarized_target_group, start_index)
+
+    member_count = len(binarized_target_group.nonzero()[0])
+    if member_count <= 6:
+        min_matches = 1
+    else:
+        min_matches = 2
+
+    while matches >= 2 and x < 4:
+        scaled_target_group = get_scaled_target_group(current_group)
         group_distances = scale_and_score_matrix(
             binarized_groups,
             current_group,
-            scaled_utility_vector
+            scaled_target_group
         )
-        best_group: np.number = find_best_n_groups(group_distances, 1)[0]
+        best_group: np.number = find_best_starting_groups(group_distances, 1)[0]
         current_group, matches = apply_group_from_index(binarized_groups, current_group, best_group)
-        if matches >= 2:  # if current_group adds at least 2 new matching users
+        if matches >= min_matches: # if current_group adds at least 2 new matching users
             selected_group_indices.append(best_group)
             x += 1
-        else:
-            x = 5  # change this
+
     return selected_group_indices
 
 
@@ -140,8 +115,7 @@ def score_full_path(
     path: list[np.number],
     binarized_groups: csr_matrix,
     binarized_target_group: csr_matrix,
-    scaled_utility_vector: np.ndarray,
-    extraneous_penalty: float,
+    scaled_target_group: np.ndarray,
 ) -> Result:
     """
     Calculate final score and other statistics for a path.
@@ -156,19 +130,20 @@ def score_full_path(
     extraneous_users = selected_users - matching_users
     unmatched_users = binarized_target_group - matching_users
 
-    matching_users_count = matching_users.sum()
-    extraneous_users_count = extraneous_users.sum()
-    unmatched_users_count = unmatched_users.sum()
+    matching_users_count = len(matching_users.nonzero()[0])
+    extraneous_users_count = len(extraneous_users.nonzero()[0])
+    unmatched_users_count = len(unmatched_users.nonzero()[0])
 
-    matching_percent = matching_users_count / binarized_target_group.sum()
-    extraneous_percent = extraneous_users_count / binarized_target_group.sum()
+    matching_percent = matching_users_count / len(binarized_target_group.nonzero()[0])
+    extraneous_percent = extraneous_users_count / len(binarized_target_group.nonzero()[0])
 
-    scaled_matching_users = selected_users.multiply(scaled_utility_vector).sum()
-    scaled_unmatched_users = unmatched_users.multiply(scaled_utility_vector).sum() * -1
-    score = scaled_matching_users + extraneous_users_count*extraneous_penalty + scaled_unmatched_users
+    scaled_matching_users_score = selected_users.multiply(scaled_target_group).sum()
+    scaled_extraneous_users_score = extraneous_users.multiply(scaled_target_group).sum() * -1
+    scaled_unmatched_users_score = unmatched_users.multiply(scaled_target_group).sum() * -1
+    score = scaled_matching_users_score + scaled_extraneous_users_score + scaled_unmatched_users_score
 
     suggested_groups = [
-        str(index)
+        int(index)
         for index
         in path
     ]
@@ -203,61 +178,63 @@ def find_optimal_groups(
     binarized_target_group: csr_matrix,
     binarized_groups: csr_matrix,
     n_groups: Optional[int]=None,
-    extraneous_penalty: Optional[float]=None,
-    user_access_counts: Optional[Any]=None,
-    group_weights: Optional[Any]=None,
-) -> Tuple[Result, list[Result]]:
+    weight_members: Optional[Callable[[np.ndarray], np.ndarray]]=None,
+    weight_results: Optional[Callable[[Result], Result]]=None,
+) -> list[Result]:
     if n_groups is None:
         n_groups = 10
 
-    if extraneous_penalty is None:
-        target_group_size = binarized_target_group.sum()
-        extraneous_penalty = calculate_exraneous_penalty(target_group_size)
+    target_group = get_scaled_target_group(binarized_target_group)
 
-    scaled_utility_vector = get_scaled_utility_vector(
-        binarized_target_group,
-        extraneous_penalty,
-        user_access_counts=user_access_counts
-    )
+    # Weight members
+    if weight_members is not None:
+        target_group = weight_members(target_group)
 
+    # Scale and score
     group_distances = scale_and_score_matrix(
         binarized_groups,
         binarized_target_group,
-        scaled_utility_vector,
-        group_weights=group_weights,
+        target_group,
     )
 
-    # AKA: best n starting-points
-    best_n_groups = find_best_n_groups(group_distances, n_groups)
+    best_starting_groups = find_best_starting_groups(group_distances, n_groups)
 
     paths: list = []
-    for group_index in best_n_groups:
+    for group_index in best_starting_groups:
         path: list[np.number] = find_groups_from_starting_group(
             group_index,
             binarized_groups,
             binarized_target_group,
-            extraneous_penalty
         )
         paths.append(path)
 
+    # Score combinations of groups
     results: list[Result] = []
     for path in paths:
         result = score_full_path(
             path,
             binarized_groups,
             binarized_target_group,
-            scaled_utility_vector,
-            extraneous_penalty,
+            target_group,
         )
         results.append(result)
 
-    sorted_results = sorted(results, key=lambda r: r.score, reverse=True)
-    best_result = sorted_results[0]
+    # Shift scores right
+    min_score = min([result.score for result in results])
+    for result in results:
+        result.score += min_score
 
-    return best_result, sorted_results
+    # # Weight groups
+    if weight_results is not None:
+        for index, result in enumerate(results):
+            weighted_result = weight_results(result)
+            results[index] = weighted_result
+
+    sorted_results = sorted(results, key=lambda r: r.score, reverse=True)
+    return sorted_results
 
 
 def calculate_exraneous_penalty(target_group_size) -> float:
     """Scales amount of extra users allowed using a function of target_group_size"""
-    extraneous_penalty = -0.0242654 * (target_group_size ** 0.3389719)
+    extraneous_penalty = -0.4 * (target_group_size ** 0.3389719)
     return extraneous_penalty
