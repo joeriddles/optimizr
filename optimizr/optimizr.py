@@ -138,7 +138,7 @@ def score_full_path(
     extraneous_percent = extraneous_users_count / len(binarized_target_group.nonzero()[0])
 
     scaled_matching_users_score = selected_users.multiply(scaled_target_group).sum()
-    scaled_extraneous_users_score = extraneous_users.multiply(scaled_target_group).sum() * -1
+    scaled_extraneous_users_score = extraneous_users.multiply(scaled_target_group).sum()
     scaled_unmatched_users_score = unmatched_users.multiply(scaled_target_group).sum() * -1
     score = scaled_matching_users_score + scaled_extraneous_users_score + scaled_unmatched_users_score
 
